@@ -20,23 +20,21 @@ if ~isempty(H.U)
     TH.TV = randn(r);
     TH.TV = TH.TV-TH.TV';
     %%Orthogonal component with respect to U and V
-    TH.PU  = randn(size(H, 1)-r,r);
-    TH.PV  = randn(size(H, 2)-r,r);
+    TH.PU  = randn(size(H, 1),r);
+    TH.PU  = TH.PU - TH.U * (TH.U'*TH.PU);
+    TH.PV  = randn(size(H, 2),r);
+    TH.PV  = TH.PV - TH.V * (TH.V'*TH.PV);
 end
 % Factorization of the lower triangular block as U21 * V21'
 if ~isempty(H.Rl)
-    TH.TRl = randn(r);
-    TH.TRl = TH.TRl-TH.TRl';
-    TH.PRl = randn(H.ml-r, r);
-    TH.TRr = randn(r);
-    TH.TRr = TH.TRr-TH.TRr';
-    TH.PRr = randn(H.mr-r, r);
-    TH.TWl = randn(r);
-    TH.TWl = TH.TWl-TH.TWl';
-    TH.PWl = randn(H.nl-r, r);
-    TH.TWr = randn(r);
-    TH.TWr = TH.TWr-TH.TWr';
-    TH.PWr =randn(H.nr-r, r);
+    TH.PR = randn(2*r, r);
+    TH.PR = TH.PR - [TH.Rl;TH.Rr] * ([TH.Rl;TH.Rr]' * TH.PR);    
+    TH.TR = randn(r);
+    TH.TR = TH.TR-TH.TR';
+    TH.TW = randn(r);
+    TH.TW = TH.TW-TH.TW';
+    TH.PW = randn(2*r, r);
+    TH.PW = TH.PW - [TH.Wl;TH.Wr] * ([TH.Wl;TH.Wr]' * TH.PW);
 end
 % Dense version of the matrix, if the size is smaller than the
 % minimum allowed block size.

@@ -15,14 +15,10 @@ classdef hsstangent
         PU
         PV
         % Factorization of the lower triangular block as U21 * V21'
-        TRl
-        PRl
-        TRr
-        PRr
-        TWl
-        PWl
-        TWr
-        PWr
+        TR
+        PR
+        TW
+        PW
 
         % Dense version of the matrix, if the size is smaller than the
         % minimum allowed block size.
