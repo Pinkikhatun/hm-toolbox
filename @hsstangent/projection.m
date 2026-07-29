@@ -1,22 +1,23 @@
-function [TH, VH, M, rhs] = projection(TH)
+function [TH, VH, M, rhs, C] = projection(TH)
 %PROJECTION Projection onto the horizontal space.
 
 TH = total_projection(TH);
 H = base_point(TH);
 r = hssrank(H);
-[M, rhs] = create_ls_system_rec(TH, r);
+[M, C, rhs] = create_ls_system_rec(TH, r);
 
-x = M\rhs;
-xx = vertical2vec(TH);
-keyboard
-
+%x = M\rhs;
+xv = [M'*M, C'; C, zeros(size(C, 1))] \ [M' * rhs; zeros(size(C, 1),1) ];
+x = xv(1 : size(M, 2));
+%xx = vertical2vec(TH);
+%keyboard
 
 VH = create_vertical_from_vec(TH, H, x, r);
 tmp = TH - VH;
 TH = tmp;
 end
 
-function [M, rhs] = create_ls_system_rec(TH, r)
+function [M, C, rhs] = create_ls_system_rec(TH, r)
     vec = @(X) X(:);
 
     if TH.leafnode
@@ -26,9 +27,13 @@ function [M, rhs] = create_ls_system_rec(TH, r)
         rhs = [ ...
             vec(TH.U * TH.TU) ; ... % + TH.PU - TH.U * (TH.U' * TH.PU)) ; ...
             vec(TH.V * TH.TV) ]; % + TH.PV - TH.V * (TH.V' * TH.PV)) ];
+        P = perfect_shuffle(r);        
+        C = blkdiag(P, P);
     else
-        [M1, rhs1] = create_ls_system_rec(TH.TA11, r);
-        [M2, rhs2] = create_ls_system_rec(TH.TA22, r);
+        [M1, C1, rhs1] = create_ls_system_rec(TH.TA11, r);
+        [M2, C2, rhs2] = create_ls_system_rec(TH.TA22, r);
+
+        C = blkdiag(C1, C2);
 
         % We need to add the block corresponding to equations involving C12
         % and C21: these actually refer to the variables Omega and
@@ -36,35 +41,46 @@ function [M, rhs] = create_ls_system_rec(TH, r)
         % the recursive calls. The exact position should be computed
         % looking at the size of M1, M2
         MC = [ ...
-            [ sparse(r^2, size(M1, 2)-2*r^2), -kron(TH.B12', speye(r)), sparse(r^2, 2*r^2), kron(speye(r), TH.B12) ]; ...
-            [ sparse(r^2, size(M1, 2)-r^2),   kron(speye(r), TH.B21), -kron(TH.B21', speye(r)), sparse(r^2, r^2) ]; ...
+            [ sparse(r^2, size(M1, 2)-2*r^2), -kron(TH.B12', speye(r)), sparse(r^2, size(M2,2)), kron(speye(r), TH.B12) ]; ...
+            [ sparse(r^2, size(M1, 2)-r^2),   kron(speye(r), TH.B21), sparse(r^2, size(M2,2)-2*r^2), -kron(TH.B21', speye(r)), sparse(r^2, r^2) ]; ...
         ];
 
-        % Missing: equations local at this level, involving Rl, Rr, Wl, Wr
-		%MRW = blkdiag(...
-		%  [ sparse(2*r^2, size(M1,2)-2*r^2), blkdiag(-kron(TH.Rl', speye(r)), -kron(TH.Wl', speye(r))) ], ...
-		%  [ sparse(2*r^2, size(M2,2)-2*r^2), blkdiag(-kron(TH.Rr', speye(r)), -kron(TH.Wr', speye(r))) ]);
-        MRW = [ ...
-          [ sparse(r^2, size(M1,2)-2*r^2), -kron(TH.Rl', speye(r)), sparse(r^2, 3*r^2) ]; ...
-          [ sparse(r^2, size(M1,2)-r^2), -kron(TH.Wl', speye(r)), sparse(r^2, 2*r^2) ]; ...
-		  [ sparse(r^2, size(M1,2)+size(M2,2)-2*r^2), -kron(TH.Rr', speye(r)), sparse(r^2, 1*r^2) ]; ...
-          [ sparse(r^2, size(M1,2)+size(M2,2)-r^2), -kron(TH.Wr', speye(r)) ]];
+        MRW = [...
+            [ sparse(r^2, size(M1,2)-2*r^2), -kron(TH.Rl',speye(r)), sparse(r^2, r^2+size(M2,2)) ] ; ...
+            [ sparse(r^2, size(M1,2)+size(M2,2)-2*r^2), -kron(TH.Rr',speye(r)), sparse(r^2, r^2) ] ; ...
+            [ sparse(r^2, size(M1,2)-r^2), -kron(TH.Wl',speye(r)), sparse(r^2, size(M2,2)) ] ; ...
+            [ sparse(r^2, size(M1,2)+size(M2,2)-r^2), -kron(TH.Wr',speye(r)) ] ...
+        ];
 
         M = [ blkdiag(M1, M2); MC ; MRW];
         rhs = [rhs1 ; rhs2 ; vec(TH.TB12) ; vec(TH.TB21) ; ...
-            vec(TH.PR + [TH.Rl ; TH.Rr ] * TH.TR); vec(TH.PW + [TH.Wl ; TH.Wr ] * TH.TW) ];
-        %MRW2 = blkdiag(...
-        %    [ kron(speye(r), TH.Rl) ; kron(speye(r), TH.Rr) ], ...
-        %    [ kron(speye(r), TH.Wl) ; kron(speye(r), TH.Wr) ]);
+            vec(TH.PR(1:r,:) + TH.Rl * TH.TR); 
+            vec(TH.PR(r+1:end,:) + TH.Rr * TH.TR); 
+            vec(TH.PW(1:r,:) + TH.Wl * TH.TW); 
+            vec(TH.PW(r+1:end,:) + TH.Wr * TH.TW); ];
 
-        MRW2 = [ blkdiag(kron(speye(r), TH.Rl), kron(speye(r), TH.Wl)); ...
-            blkdiag(kron(speye(r), TH.Rr), kron(speye(r), TH.Wr)) ];
+        % Equations for RU * Omega and RV * Lambda
+        MRW2 = [ ...
+            kron(speye(r), TH.Rl), sparse(r^2, r^2); ...
+            kron(speye(r), TH.Rr), sparse(r^2, r^2); ...
+            sparse(r^2, r^2), kron(speye(r), TH.Wl); ...
+            sparse(r^2, r^2), kron(speye(r), TH.Wr);
+        ];
+
+        % Conditions for orthogonality
+        P = perfect_shuffle(r);
+        C = [ C , sparse(size(C, 1), 2*r^2) ; ...
+            [ sparse(r^2, size(M1, 2) - 2*r^2), kron(TH.Rl', TH.Rl'), sparse(r^2, size(M2,2)-r^2), kron(TH.Rr', TH.Rr'), sparse(r^2, 3*r^2) ]; ...
+            [ sparse(r^2, size(M1, 2) - r^2), kron(TH.Wl', TH.Wl'), sparse(r^2, size(M2,2)-r^2), kron(TH.Wr', TH.Wr'), sparse(r^2, 2*r^2)]; ...
+            [ sparse(2*size(P,1), size(C, 2)) , blkdiag(P,P) ]
+        ];
         
         
         M = [M, [sparse(size(M1, 1)+size(M2, 1)+2*r^2, size(MRW2, 2)); MRW2]];
         
     end
 end
+
 function [VH, l] = create_vertical_from_vec(TH, H, x, r)
 	VH = TH;
 	VH.TD(:) = 0;
@@ -88,16 +104,28 @@ function [VH, l] = create_vertical_from_vec(TH, H, x, r)
 		VH.TU(:) = 0;
 		VH.TV(:) = 0;
 		
-		if VH.TA11.leafnode
-    		VH.TB12 = VH.B12 * VH.TA11.TV - VH.TA22.TU * VH.B12;
+		if VH.TA22.leafnode
+    		VH.TB12 = VH.B12 * VH.TA22.TV - VH.TA11.TU * VH.B12;
+            VH.TB21 = VH.B21 * VH.TA11.TV - VH.TA22.TU * VH.B21;
+            VH.PR(:) = [ VH.TA11.TU' * VH.Rl ; VH.TA22.TU' * VH.Rr  ];
+            VH.PW(:) = [ VH.TA11.TV' * VH.Wl ; VH.TA22.TV' * VH.Wr  ];
     	else
-	    	VH.TB12 = VH.B12 * VH.TA11.TW - VH.TA22.TR * VH.B12;
-	    end
-	    
-	    if VH.TA22.leafnode
-		    VH.TB21 = VH.B21 * VH.TA22.TV - VH.TA11.TU * VH.B21;
-		else
-			VH.TB21 = VH.B21 * VH.TA22.TW - VH.TA11.TR * VH.B21;
-		end
+	    	VH.TB12 = VH.B12 * VH.TA22.TW - VH.TA11.TR * VH.B12;
+            VH.TB21 = VH.B21 * VH.TA11.TW - VH.TA22.TR * VH.B21;
+            VH.PR(:) = [ VH.TA11.TR' * VH.Rl ; VH.TA22.TR' * VH.Rr  ];
+            VH.PW(:) = [ VH.TA11.TW' * VH.Wl ; VH.TA22.TW' * VH.Wr  ];
+        end
 	end
+end
+
+function P = perfect_shuffle(r)
+    w = 1 : r^2;
+    I = zeros(r, r); I(:) = w;
+    I = I';
+    I = I(:);
+    P = speye(r^2);
+    P = P(:, I);
+    P = P + speye(r^2);
+    J = find(tril(ones(r)) == 1);
+    P = P(J, :);
 end

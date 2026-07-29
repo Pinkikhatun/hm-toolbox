@@ -24,18 +24,20 @@ function [VH, l] = random_vertical(TH, r)
 		VH.TW(:) = skew(VH.TW);
 		VH.TU(:) = 0;
 		VH.TV(:) = 0;
-		
+               
+        % Assuming that if TA11 is leafnode, then TA22 is leafnode.
+        assert(VH.TA11.leafnode == VH.TA22.leafnode);
 		if VH.TA11.leafnode
+            VH.PR(:) = [ VH.TA11.TU' * VH.Rl ; VH.TA22.TU' * VH.Rr  ];
+            VH.PW(:) = [ VH.TA11.TV' * VH.Wl ; VH.TA22.TV' * VH.Wr  ];
     		VH.TB12 = VH.B12 * VH.TA22.TV - VH.TA11.TU * VH.B12;
-    	else
-	    	VH.TB12 = VH.B12 * VH.TA22.TW - VH.TA11.TR * VH.B12;
-	    end
-	    
-	    if VH.TA22.leafnode
 		    VH.TB21 = VH.B21 * VH.TA11.TV - VH.TA22.TU * VH.B21;
-		else
+        else
+            VH.PR(:) = [ VH.TA11.TR' * VH.Rl ; VH.TA22.TR' * VH.Rr  ];
+            VH.PW(:) = [ VH.TA11.TW' * VH.Wl ; VH.TA22.TW' * VH.Wr  ];
+	    	VH.TB12 = VH.B12 * VH.TA22.TW - VH.TA11.TR * VH.B12;
 			VH.TB21 = VH.B21 * VH.TA11.TW - VH.TA22.TR * VH.B21;
-		end
+        end
 	end
 end
 

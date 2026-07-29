@@ -98,10 +98,14 @@ end
             H.B12 = randn(k);
             H.B21 = randn(k);
             
-            H.Rr = randn(k);
-            H.Rl = randn(k);
-            H.Wl = randn(k);
-            H.Wr = randn(k);
+            [Q, ~] = qr(randn(2*k, k), 0);
+            H.Rr = Q(1:k, :);
+            H.Rl = Q(k+1:end, :);
+            [Q, ~] = qr(randn(2*k, k), 0);
+            H.Wl = Q(1:k,:);
+            H.Wr = Q(k+1:end, :);
+
+
             
             H.ml = ceil(n / 2);
             H.nl = H.ml;
