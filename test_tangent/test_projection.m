@@ -9,3 +9,5 @@ TA = total_projection(random_vertical(TA, r));
 [T, V, M, rhs, C] = projection(TA);
 K = [M'*M, C' ; C , zeros(size(C,1))];
 Check = projection(V);
+% t=1;
+Y = retraction(A, T, t);
