@@ -10,12 +10,6 @@ function s = hsstangent_inner(TH1, TH2)
 %
 %       dU = U*TU + PU,  dV = V*TV + PV,  dR = R*TR + PR,  dW = W*TW + PW.
 %
-%   With G = hss_euclidean_gradient(H,A) this gives the directional
-%   derivative of f along TH:
-%
-%       d/dt f( theta + t*TH ) |_{t=0} = hsstangent_inner(G, TH).
-%
-%   Both arguments must live at the same base point.
 
 s = 0;
 
