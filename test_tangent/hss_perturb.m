@@ -1,17 +1,10 @@
 function Y = hss_perturb(H, TH, t)
-%HSS_PERTURB Move the HSS generators along a tangent vector, WITHOUT uf().
 %
 %   Y = HSS_PERTURB(H, TH, t) applies theta -> theta + t*dtheta to every
 %   generator of H, using the tangent parameterisation
 %
 %       dU = U*TU + PU,  dV = V*TV + PV,  dR = R*TR + PR,  dW = W*TW + PW,
 %       dB12 = TB12, dB21 = TB21, dD = TD.
-%
-%   This is RETRACTION with the orthonormalisation removed; it is the map
-%   whose derivative the Euclidean gradient is taken with respect to, and is
-%   therefore what a finite-difference check of HSS_EUCLIDEAN_GRADIENT must
-%   use. Do not use it as a retraction: it destroys orthonormality of the
-%   bases.
 
 if nargin < 3
     t = 1;
