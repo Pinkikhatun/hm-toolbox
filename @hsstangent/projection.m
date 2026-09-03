@@ -7,7 +7,10 @@ r = hssrank(H);
 [M, C, rhs] = create_ls_system_rec(TH, r);
 
 %x = M\rhs;
-xv = [M'*M, C'; C, zeros(size(C, 1))] \ [M' * rhs; zeros(size(C, 1),1) ];
+% xv = [M'*M, C'; C, zeros(size(C, 1))] \ [M' * rhs; zeros(size(C, 1),1) ];
+% x = xv(1 : size(M, 2));
+K    = [M'*M, C'; C, zeros(size(C,1))];
+xv   = lsqminnorm(K, [M'*rhs; zeros(size(C,1),1)]);   % was  K \ ...
 x = xv(1 : size(M, 2));
 %xx = vertical2vec(TH);
 %keyboard
