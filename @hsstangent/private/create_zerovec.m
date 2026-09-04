@@ -17,20 +17,16 @@ if ~isempty(H.U)
     TH.TV = zeros(r);
 
     %%Orthogonal component with respect to U and V
-    TH.PU  = zeros(size(H, 1)-r,r);
-    TH.PV  = zeros(size(H, 2)-r,r);
+    TH.PU  = zeros(size(H.U));
+    TH.PV  = zeros(size(H.V));
 end
 
 % Factorization of the lower triangular block as U21 * V21'
 if ~isempty(H.Rl)
-    TH.TRl = zeros(r);
-    TH.PRl = zeros(H.ml-r, r);
-    TH.TRr = zeros(r);
-    TH.PRr = zeros(H.mr-r, r);
-    TH.TWl = zeros(r);
-    TH.PWl = zeros(H.nl-r, r);
-    TH.TWr = zeros(r);
-    TH.PWr = zeros(H.nr-r, r);
+    TH.TR = zeros(r);
+    TH.PR = zeros(size([H.Rl; H.Rr]));
+    TH.TW = zeros(r);
+    TH.PW = zeros(size([H.Wl; H.Wr]));
 end
 % Dense version of the matrix, if the size is smaller than the
 % minimum allowed block size.
@@ -45,4 +41,3 @@ end
 
 
 end
-

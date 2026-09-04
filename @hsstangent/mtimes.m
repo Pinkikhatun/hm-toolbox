@@ -21,29 +21,19 @@ function TH = hsstangent_scalar_mul(alpha, TH0)
 
 TH = TH0;
 
-% Tangent fields at this node.
-TH.TB12 = alpha * TH0.TB12;
-TH.TB21 = alpha * TH0.TB21;
-
-TH.TU = alpha * TH0.TU;
-TH.TV = alpha * TH0.TV;
-TH.PU = alpha * TH0.PU;
-TH.PV = alpha * TH0.PV;
-
-TH.TRl = alpha * TH0.TRl;
-TH.PRl = alpha * TH0.PRl;
-TH.TRr = alpha * TH0.TRr;
-TH.PRr = alpha * TH0.PRr;
-
-TH.TWl = alpha * TH0.TWl;
-TH.PWl = alpha * TH0.PWl;
-TH.TWr = alpha * TH0.TWr;
-TH.PWr = alpha * TH0.PWr;
-
-TH.TD = alpha * TH0.TD;
-
-% Recursive tangent fields.
-if ~TH0.leafnode
+if TH0.leafnode
+    TH.TU = alpha * TH0.TU;
+    TH.TV = alpha * TH0.TV;
+    TH.PU = alpha * TH0.PU;
+    TH.PV = alpha * TH0.PV;
+    TH.TD = alpha * TH0.TD;
+else
+    TH.TB12 = alpha * TH0.TB12;
+    TH.TB21 = alpha * TH0.TB21;
+    TH.TR = alpha * TH0.TR;
+    TH.PR = alpha * TH0.PR;
+    TH.TW = alpha * TH0.TW;
+    TH.PW = alpha * TH0.PW;
     TH.TA11 = alpha * TH0.TA11;
     TH.TA22 = alpha * TH0.TA22;
 end
