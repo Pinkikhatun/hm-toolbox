@@ -1,7 +1,13 @@
 % function that performs the compression of an HSS matrix
-function B = hss_compress(A, tol)
+function B = hss_compress(A, tol, tcomp)
 % The norm has the side-effect of making the matrix proper
 B = hss_proper(A);
+
+% A supplied compressor uses its parameter directly (e.g., a fixed rank).
+if nargin == 3
+    B = backward_stage(B, tol, [], [], tcomp);
+    return
+end
 
 % Select the compression strategy according to the user's choice
 switch hssoption('compression')

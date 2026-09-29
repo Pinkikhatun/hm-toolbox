@@ -3,6 +3,7 @@ function hss_RunAllTests
 
 
 hss_TestCreation;
+TestTruncate('hss');
 
 hss_TestOperations;
 
