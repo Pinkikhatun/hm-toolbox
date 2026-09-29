@@ -31,6 +31,13 @@ classdef hss
     %     integer vectors I, J returns the submatrix A(I, J). M and N are the
     %     number of rows and columns of A.
     %
+    % H = HSS('handle', AFUN, AFUNT, AEVAL, M, N, K, P) constructs a
+    %     fixed-rank approximation using K+P random samples, with uniform
+    %     HSS basis ranks K. P defaults to 10 when omitted. K and P must be
+    %     nonnegative integers; K must fit every leaf row/column dimension.
+    %     Omit K (or pass []) to use adaptive tolerance-based sampling.
+    %     Optional 'cluster' arguments follow K and P.
+    %
     % H = HSS('loewner', MU, LAMBDA, V, R, L, W) constructs an HSS matrix
     %     representing the Loewner matrix with entries equal to:
     %

@@ -1,4 +1,4 @@
-function B = hss_from_random_sampling(obj, Afun, Afunt, Aeval, m, n, target_rank)
+function B = hss_from_random_sampling(obj, Afun, Afunt, Aeval, m, n, target_rank, oversampling)
 %HSS_FROM_RANDOM_SAMPLING Build the HSS representation of a matrix
 % 			   using mat-vec multiplication with random (block) vectors
 %			   and access to (block) diagonal entries.
@@ -13,8 +13,22 @@ function B = hss_from_random_sampling(obj, Afun, Afunt, Aeval, m, n, target_rank
 % isOctave = exist('OCTAVE_VERSION', 'builtin') ~= 0;
 
 if ~exist('target_rank', 'var')
-    target_rank = 0;
+    target_rank = [];
 end
+if ~exist('oversampling', 'var')
+    oversampling = 10;
+end
+fixed_rank = ~isempty(target_rank);
+if fixed_rank
+    validateattributes(target_rank, {'numeric'}, ...
+        {'scalar', 'real', 'finite', 'integer', 'nonnegative'}, ...
+        'hss', 'target_rank');
+    target_rank = double(target_rank);
+    check_rank_dimensions(obj, target_rank);
+end
+validateattributes(oversampling, {'numeric'}, ...
+    {'scalar', 'real', 'finite', 'integer', 'nonnegative'}, ...
+    'hss', 'oversampling');
 
 tol = hssoption('threshold');
 
@@ -31,9 +45,10 @@ failed = true;
 k = 10;
 a = 10; % additional columns used for testing the residual
 
-if target_rank > 0
-    k = target_rank;
-    a = 0;
+if fixed_rank
+    k = target_rank + double(oversampling);
+    a = 0; % All samples contribute to the fixed-rank bases.
+    tol = 0; % Do not tolerance-truncate the rank-k interpolative bases.
 end
 
 Ocol = randn(n, k + a);
@@ -45,27 +60,31 @@ Srow = Afunt(Orow);
 bs = 12;
 
 % Norm estimate through a few iterations of the power method. 
-v = randn(n, 1);
-converged = false;
-nrmold = 0; j = 0;
-while ~converged
-    v = Afunt(v / norm(v));
-    v = Afun(v);
+if fixed_rank
+    nrm = 1; % No norm estimate or adaptive residual test is needed.
+else
+    v = randn(n, 1);
+    converged = false;
+    nrmold = 0; j = 0;
+    while ~converged
+        v = Afunt(v / norm(v));
+        v = Afun(v);
     
-    nrm = sqrt(norm(v));
-    j = j + 1;
+        nrm = sqrt(norm(v));
+        j = j + 1;
     
-    if (nrm - nrmold) < nrmold * 5e-2
-        converged = true;
+        if (nrm - nrmold) < nrmold * 5e-2
+            converged = true;
+        end
+    
+        nrmold = nrm;
     end
-    
-    nrmold = nrm;
-end    
+end
 
 while failed
     % fprintf('HSS_RANDOM_FROM_SAMPLING :: columns: %d\n', size(Scol, 2));
     [B, failed] = hss_from_random_sampling_rec(B, Aeval, Scol, Srow, ...
-        Ocol, Orow, 0, 0, tol, nrm, a);
+        Ocol, Orow, 0, 0, tol, nrm, a, target_rank);
 
     if failed
         % fprintf('HSS_FROM_RANDOM_SAMPLING :: Enlarging sampling space to %d\n', k + bs);
@@ -83,7 +102,7 @@ failed = true;
 while failed    
     [B, ~, ~, ~, ~, ~, ~, ~, ~, failed] = ...
         hss_from_random_sampling_rec2(B, Aeval, Scol, Srow, ...
-            Ocol, Orow, 0, 0, tol, nrm, a);
+            Ocol, Orow, 0, 0, tol, nrm, a, target_rank);
         
     if failed
         % fprintf('HSS_FROM_RANDOM_SAMPLING :: Enlarging sampling space to %d\n', k + bs);
@@ -102,7 +121,7 @@ B = clean_structure(B);
 end
 
 function [B, failed] = hss_from_random_sampling_rec(B, Aeval, Scol, ...
-    Srow, Ocol, Orow, row, col, tol, nrm, a)
+    Srow, Ocol, Orow, row, col, tol, nrm, a, target_rank)
 
 if B.leafnode == 1
     failed = false;
@@ -122,7 +141,7 @@ if B.leafnode == 1
         Scol = Scol - B.D * Ocol;
         
         [Q, ~] = colspan(Scol(:, 1:end - a), ...
-            sqrt(size(Scol, 2)) * eps, nrm);
+            sqrt(size(Scol, 2)) * eps, nrm, target_rank);
         
         Scol2 = Scol(:, end-a+1:end);
         Scol2 = Scol2 - Q * (Q' * Scol2);
@@ -146,7 +165,7 @@ if B.leafnode == 1
     if isempty(B.B21) || true
         Srow = Srow - B.D' * Orow;
         [Q, ~] = colspan(Srow(:,1:end-a), ...
-            sqrt(size(Srow, 2)) * eps, nrm);
+            sqrt(size(Srow, 2)) * eps, nrm, target_rank);
         
         Srow2 = Srow(:,end-a+1:end);
         Srow2 = Srow2 - Q * (Q' * Srow2);
@@ -168,13 +187,13 @@ if B.leafnode == 1
 else
     [B.A11, failed1] = hss_from_random_sampling_rec(B.A11, Aeval, Scol(1:B.ml, :), ...
         Srow(1:B.nl, :), Ocol(1:B.nl, :), Orow(1:B.ml, :), ...
-        row, col, tol, nrm, a);
+        row, col, tol, nrm, a, target_rank);
     
     if ~failed1
         [B.A22, failed2] = hss_from_random_sampling_rec(B.A22, Aeval, ...
             Scol(B.ml + 1:end, :), Srow(B.nl + 1:end,:), ...
             Ocol(B.nl + 1:end, :), Orow(B.ml + 1:end, :), ...
-            row + B.ml, col + B.nl, tol, nrm, a);
+            row + B.ml, col + B.nl, tol, nrm, a, target_rank);
     end
     
     if (failed1 || failed2)
@@ -187,7 +206,7 @@ end
 end
 
 function [B, Scol, Srow, Ocol, Orow, Jcol, Jrow, U, V, failed] = ...
-    hss_from_random_sampling_rec2(B, Aeval, Scol, Srow, Ocol, Orow, row, col, tol, nrm, a)
+    hss_from_random_sampling_rec2(B, Aeval, Scol, Srow, Ocol, Orow, row, col, tol, nrm, a, target_rank)
 
     failed = false;
 
@@ -206,7 +225,7 @@ function [B, Scol, Srow, Ocol, Orow, Jcol, Jrow, U, V, failed] = ...
         [B.A11, Scol1, Srow1, Ocol1, Orow1, Jcol1, Jrow1, U1, V1, failed1] = ...
             hss_from_random_sampling_rec2(B.A11, Aeval, ...
             Scol(1:B.ml, :), Srow(1:B.nl, :), Ocol(1:B.nl, :), ...
-            Orow(1:B.ml, :), row, col, tol, nrm, a);
+            Orow(1:B.ml, :), row, col, tol, nrm, a, target_rank);
         
         if failed1
             failed = true;
@@ -219,7 +238,7 @@ function [B, Scol, Srow, Ocol, Orow, Jcol, Jrow, U, V, failed] = ...
             hss_from_random_sampling_rec2(B.A22, Aeval, ...
             Scol(B.ml + 1:end, :), Srow(B.nl + 1:end,:), ...
             Ocol(B.nl + 1:end, :), Orow(B.ml + 1:end, :), ...
-            row + B.ml, col + B.nl, tol, nrm, a);
+            row + B.ml, col + B.nl, tol, nrm, a, target_rank);
         
         if failed2
             failed = true;
@@ -246,7 +265,7 @@ function [B, Scol, Srow, Ocol, Orow, Jcol, Jrow, U, V, failed] = ...
             % If B.U is non empty we can recover Jcolloc from the previous
             % run, which was successful. The basis is not recomputed.
             if isempty(B.U)
-                Q = colspan(Scol(:, 1:end-a), sqrt(size(Scol, 2)) * eps, nrm);
+                Q = colspan(Scol(:, 1:end-a), sqrt(size(Scol, 2)) * eps, nrm, target_rank);
 
                 Scol2 = Scol(:, end-a+1:end);
                 Scol2 = Scol2 - Q * (Q' * Scol2);
@@ -277,7 +296,7 @@ function [B, Scol, Srow, Ocol, Orow, Jcol, Jrow, U, V, failed] = ...
             % If B.V is non empty we can recover Jrowloc from the previous
             % run, which was successful. The basis is not recomputed.
             if isempty(B.V)
-                Q = colspan(Srow(:, 1:end-a), sqrt(size(Srow, 2)) * eps, nrm);
+                Q = colspan(Srow(:, 1:end-a), sqrt(size(Srow, 2)) * eps, nrm, target_rank);
 
                 Srow2 = Srow(:, end-a+1:end);
                 Srow2 = Srow2 - Q * (Q' * Srow2);
@@ -310,7 +329,15 @@ function [B, Scol, Srow, Ocol, Orow, Jcol, Jrow, U, V, failed] = ...
     end
 end
 
-function [Q, rk] = colspan(S, tol, nrm)
+function [Q, rk] = colspan(S, tol, nrm, target_rank)
+if ~isempty(target_rank)
+    % Keep exactly K directions, including for numerically rank-deficient
+    % samples. Full U also supplies directions when the samples are empty.
+    [Q, ~, ~] = svd(S);
+    rk = target_rank;
+    Q = Q(:, 1:rk);
+    return
+end
 use_qr = false;
 
 if use_qr
@@ -346,4 +373,17 @@ else
     B.A22 = clean_structure(B.A22);
 end
 
+end
+
+function check_rank_dimensions(B, k)
+% Uniform bases require at least K rows and columns in every leaf.
+if B.leafnode
+    if ~B.topnode && min(size(B.D)) < k
+        error('hss:TargetRankTooLarge', ...
+            'Target rank must not exceed any leaf row or column dimension.');
+    end
+else
+    check_rank_dimensions(B.A11, k);
+    check_rank_dimensions(B.A22, k);
+end
 end

@@ -3,6 +3,7 @@ function hss_RunAllTests
 
 
 hss_TestCreation;
+hss_TestFixedRankSampling;
 TestTruncate('hss');
 
 hss_TestOperations;
